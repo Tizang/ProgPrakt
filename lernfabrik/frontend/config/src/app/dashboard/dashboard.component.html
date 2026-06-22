@@ -1,0 +1,121 @@
+<div class="page-layout">
+  <nav class="sidebar">
+    <div class="nav-item active">Dashboard</div>
+    <div class="nav-item" routerLink="/gui/MachineOverview">Maschinen</div>
+    <div class="nav-item" routerLink="/replay">CSV Replay</div>
+  </nav>
+
+  <div class="content">
+    <h1>Lernfabrik 4.0 — Digitaler Zwilling</h1>
+
+    <!-- Status-Kacheln -->
+    <div class="kpi-row">
+      <div class="kpi" [class.kpi-green]="runningCount > 0">
+        <div class="kpi-value">{{ runningCount }}</div>
+        <div class="kpi-label">Laufend</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-value">{{ idleCount }}</div>
+        <div class="kpi-label">Bereit</div>
+      </div>
+      <div class="kpi" [class.kpi-red]="overheatedCount > 0">
+        <div class="kpi-value">{{ overheatedCount }}</div>
+        <div class="kpi-label">Überhitzt</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-value">{{ totalPackets }}</div>
+        <div class="kpi-label">Pakete gesamt</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-value">{{ totalEnergy | number:'1.3-5' }}</div>
+        <div class="kpi-label">Energie (kWh)</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+
+      <!-- Synthetische Simulation -->
+      <div class="card">
+        <h2>Synthetische Simulation</h2>
+
+        <div class="status-badge" [class.running]="simStatus.running">
+          {{ simStatus.running ? '● Läuft' : '○ Gestoppt' }}
+        </div>
+
+        <div class="control-row">
+          <label>Geschwindigkeit: <strong>{{ simSpeed }}x</strong></label>
+          <input type="range" [(ngModel)]="simSpeed" min="1" max="50" step="1"
+                 [disabled]="simStatus.running" class="slider"/>
+        </div>
+
+        <div class="control-row">
+          <label>Paket-Intervall: <strong>{{ packageInterval }} min</strong></label>
+          <input type="range" [(ngModel)]="packageInterval" min="0.1" max="2" step="0.1"
+                 [disabled]="simStatus.running" class="slider"/>
+        </div>
+
+        <div class="button-row">
+          <button class="btn btn-start" (click)="startSim()" [disabled]="simStatus.running || replayStatus.running">
+            ▶ Start
+          </button>
+          <button class="btn btn-stop" (click)="stopSim()" [disabled]="!simStatus.running">
+            ■ Stop
+          </button>
+        </div>
+      </div>
+
+      <!-- CSV Replay Status -->
+      <div class="card">
+        <h2>CSV Replay</h2>
+
+        <div class="status-badge" [class.running]="replayStatus.running">
+          {{ replayStatus.running ? '● Läuft' : '○ Gestoppt' }}
+        </div>
+
+        <div *ngIf="replayStatus.eventsTotal > 0" class="replay-info">
+          <div class="replay-file">{{ replayStatus.file }}</div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" [style.width.%]="replayStatus.progress"></div>
+          </div>
+          <div class="progress-text">{{ replayStatus.progress }}% abgespielt</div>
+        </div>
+
+        <div *ngIf="replayStatus.eventsTotal === 0" class="replay-info">
+          <span class="muted">Kein Replay aktiv</span>
+        </div>
+
+        <div class="button-row">
+          <button class="btn btn-replay" routerLink="/replay" [disabled]="simStatus.running">
+            → Replay starten
+          </button>
+          <button class="btn btn-stop" (click)="stopReplay()" [disabled]="!replayStatus.running">
+            ■ Stop
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottleneck-Hinweis -->
+    <div class="card" *ngIf="bottleneck && totalPackets > 0">
+      <h2>Bottleneck-Analyse</h2>
+      <div class="bottleneck-info">
+        <span class="bottleneck-label">Meistbelastete Maschine:</span>
+        <span class="bottleneck-name">{{ bottleneck.name }}</span>
+        <span class="bottleneck-stat">{{ bottleneck.packets }} Pakete · {{ bottleneck.energy | number:'1.4-4' }} kWh</span>
+      </div>
+      <div class="machine-bars">
+        <div class="bar-row" *ngFor="let m of machines">
+          <div class="bar-label">{{ m.name }}</div>
+          <div class="bar-track">
+            <div class="bar-fill"
+                 [style.width.%]="bottleneck.packets > 0 ? (m.packets / bottleneck.packets * 100) : 0"
+                 [style.background]="stateColor(m.state)">
+            </div>
+          </div>
+          <div class="bar-value">{{ m.packets }}</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

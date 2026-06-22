@@ -1,0 +1,18 @@
+package gui.navigation;
+
+import mc.fenix.arrange.GemRow;
+import mc.fenix.arrange.GemColumn;
+import mc.fenix.navigation.GemNavItem;
+import mc.fenix.navigation.GemNavList;
+
+component NavContainer(List<GUIViewElement> content) {
+  @GemRow(colGap = "25px", components = [
+    @GemNavList(width = "40ch", height = "100vh", components = [
+      @GemNavItem(title = "Dashboard", target = "/dashboard"),
+      @GemNavItem(title = "Maschinen", target = "/gui/MachineOverview"),
+      @GemNavItem(title = "3D Fabrik", target = "/factory3d"),
+      @GemNavItem(title = "CSV Replay", target = "/replay")
+    ]),
+    @GemColumn(hAlign = "center", components = content)
+  ]);
+}

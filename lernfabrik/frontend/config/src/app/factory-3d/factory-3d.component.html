@@ -1,0 +1,31 @@
+<div class="page-layout">
+  <nav class="sidebar">
+    <div class="nav-item" routerLink="/dashboard">Dashboard</div>
+    <div class="nav-item" routerLink="/gui/MachineOverview">Maschinen</div>
+    <div class="nav-item active">3D Fabrik</div>
+    <div class="nav-item" routerLink="/replay">CSV Replay</div>
+  </nav>
+
+  <div class="view-wrap">
+    <canvas #canvas></canvas>
+
+    <!-- Hover tooltip -->
+    <div class="tooltip" *ngIf="hoveredMachine">
+      <div class="tt-name">{{ hoveredMachine.name }}</div>
+      <div class="tt-state" [class.running]="hoveredMachine.state === 'RUNNING'"
+                            [class.overheat]="hoveredMachine.state === 'OVERHEATED'">
+        {{ hoveredMachine.state }}
+      </div>
+      <div class="tt-info">{{ hoveredMachine.packets }} Pakete · {{ hoveredMachine.energy | number:'1.4-4' }} kWh</div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <span class="dot idle"></span> Idle
+      <span class="dot running"></span> Running
+      <span class="dot overheat"></span> Überhitzt
+    </div>
+
+    <div class="hint">Maus drehen · Scrollen zum Zoomen · Rechtsklick zum Verschieben</div>
+  </div>
+</div>

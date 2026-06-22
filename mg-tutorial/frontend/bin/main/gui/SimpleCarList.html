@@ -1,0 +1,120 @@
+
+  
+  
+    
+<nav-container class='navContainer0'
+      [content] = '[gemColumn1Tpl, ]'
+>
+</nav-container>
+
+
+
+  <ng-template #gemText2Tpl>
+    
+    
+<gem-text class='gemText2'
+      [value] = 'getGemText2ValueForAngular__ChangeDetection(
+        )'
+      [size] = 'getGemText2SizeForAngular__ChangeDetection(
+        )'
+>
+</gem-text>
+
+
+
+  </ng-template>
+  <ng-template #it3Tpl>
+    
+  
+  <ng-container *ngFor='let c of getIt3IterableForAngular__ChangeDetection(); index as cIt3'>
+  
+  
+  
+<ng-template [ngIf]='getGuard4ConditionForAngular__ChangeDetection( c)'
+             [ngIfElse]='guard4Else'
+>
+  
+  
+    
+<gem-text class='gemText5'
+      [value] = 'getGemText5ValueForAngular__ChangeDetection(
+        c)'
+      [color] = 'getGemText5ColorForAngular__ChangeDetection(
+        c)'
+>
+</gem-text>
+
+
+
+
+</ng-template>
+
+  <ng-template #guard4Else>
+    
+  
+    
+<gem-text class='gemText6'
+      [value] = 'getGemText6ValueForAngular__ChangeDetection(
+        c)'
+      [color] = 'getGemText6ColorForAngular__ChangeDetection(
+        c)'
+>
+</gem-text>
+
+
+
+
+  </ng-template>
+
+
+
+  
+    
+<gem-text class='gemText7'
+      [value] = 'getGemText7ValueForAngular__ChangeDetection(
+        c)'
+>
+</gem-text>
+
+
+
+  
+    
+<gem-text class='gemText8'
+      [value] = 'getGemText8ValueForAngular__ChangeDetection(
+        c)'
+>
+</gem-text>
+
+
+
+  
+    
+<gem-text class='gemText9'
+      [value] = 'getGemText9ValueForAngular__ChangeDetection(
+        c)'
+>
+</gem-text>
+
+
+
+
+</ng-container>
+
+
+
+  </ng-template>
+  <ng-template #gemColumn1Tpl>
+    
+    
+<gem-column class='gemColumn1'
+      [rowGap] = 'getGemColumn1RowGapForAngular__ChangeDetection(
+        )'
+      [components] = '[gemText2Tpl, it3Tpl, ]'
+>
+</gem-column>
+
+
+
+  </ng-template>
+

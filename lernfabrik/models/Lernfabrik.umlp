@@ -1,0 +1,64 @@
+/* Digital Twin - Fischertechnik Lernfabrik 4.0 */
+
+import java.time.LocalDateTime;
+
+umlp Lernfabrik {
+
+  enum MachineState {
+    IDLE,
+    RUNNING,
+    OVERHEATED,
+    FAULT;
+  }
+
+  enum PacketColor {
+    RED,
+    BLUE,
+    WHITE;
+  }
+
+  class Machine {
+    String machineName;
+    MachineState state = MachineState.IDLE;
+    float heatLevel;
+    int overheatingCount;
+    float energyConsumedKwh;
+    int processedPackets;
+  }
+
+  class Packet {
+    PacketColor color;
+    LocalDateTime createdAt;
+    LocalDateTime deliveredAt;
+    boolean delivered;
+    String currentMachineName;
+  }
+
+  class SimulationRun {
+    LocalDateTime startTime;
+    LocalDateTime endTime;
+    float speedMultiplier;
+    float packageIntervalMinutes;
+    int totalPackagesDelivered;
+    float totalEnergyKwh;
+    boolean running;
+  }
+
+  class MachineStats {
+    String machineName;
+    float energyKwh;
+    int processedPackets;
+    int overheatingEvents;
+    float avgProcessingTimeMs;
+  }
+
+  class EnergyDataPoint {
+    LocalDateTime recordedAt;
+    float energyKwh;
+    String machineName;
+  }
+
+  association [1] SimulationRun -> MachineStats [*];
+  association [1] SimulationRun -> Packet [*];
+  association [1] SimulationRun -> EnergyDataPoint [*];
+}

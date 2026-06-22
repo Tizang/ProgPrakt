@@ -11,7 +11,7 @@ jib {
 
 java {
   toolchain {
-    languageVersion = JavaLanguageVersion.of(21)
+    languageVersion = JavaLanguageVersion.of(25)
   }
 }
 
@@ -30,13 +30,12 @@ dependencies {
   implementation group: 'org.postgresql', name: 'postgresql', version: '42.5.1'
 
   // Spring Boot Dependencies
-  developmentOnly group: 'org.springframework.boot', name: 'spring-boot-devtools', version: spring_version, withoutSpringLogging
   api group: 'org.springframework.boot', name: 'spring-boot-starter-web', version: spring_version, withoutSpringLogging
   api group: 'org.springframework.boot', name: 'spring-boot-starter-websocket', version: spring_version, withoutSpringLogging
   api group: 'org.springframework.boot', name: 'spring-boot-starter-webflux', version: spring_version, withoutSpringLogging
   api group: 'org.springframework.shell', name: 'spring-shell-starter', version: spring_shell_version, withoutSpringLogging
 
-  implementation group: 'org.slf4j', name: 'slf4j-simple', version: "1.7.10"
+  implementation group: 'org.slf4j', name: 'slf4j-simple', version: "2.0.16"
 
   testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-test', version: spring_version, withoutSpringLogging
   testImplementation 'org.junit.jupiter:junit-jupiter:5.7.1', withoutSpringLogging

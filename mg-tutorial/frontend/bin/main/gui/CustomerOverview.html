@@ -1,0 +1,289 @@
+
+  
+  
+    
+<gem-row class='gemRow0'
+      [colGap] = 'getGemRow0ColGapForAngular__ChangeDetection(
+        )'
+      [components] = '[gemNavList1Tpl, gemRow5Tpl, ]'
+>
+</gem-row>
+
+
+
+  <ng-template #gemNavItem2Tpl>
+    
+    
+<gem-nav-item class='gemNavItem2'
+      [title] = 'getGemNavItem2TitleForAngular__ChangeDetection(
+        )'
+      [target] = 'getGemNavItem2TargetForAngular__ChangeDetection(
+        )'
+>
+</gem-nav-item>
+
+
+
+  </ng-template>
+  <ng-template #gemNavItem3Tpl>
+    
+    
+<gem-nav-item class='gemNavItem3'
+      [title] = 'getGemNavItem3TitleForAngular__ChangeDetection(
+        )'
+      [target] = 'getGemNavItem3TargetForAngular__ChangeDetection(
+        )'
+>
+</gem-nav-item>
+
+
+
+  </ng-template>
+  <ng-template #gemNavItem4Tpl>
+    
+    
+<gem-nav-item class='gemNavItem4'
+      [title] = 'getGemNavItem4TitleForAngular__ChangeDetection(
+        )'
+      [target] = 'getGemNavItem4TargetForAngular__ChangeDetection(
+        )'
+>
+</gem-nav-item>
+
+
+
+  </ng-template>
+  <ng-template #gemNavList1Tpl>
+    
+    
+<gem-nav-list class='gemNavList1'
+      [width] = 'getGemNavList1WidthForAngular__ChangeDetection(
+        )'
+      [height] = 'getGemNavList1HeightForAngular__ChangeDetection(
+        )'
+      [components] = '[gemNavItem2Tpl, gemNavItem3Tpl, gemNavItem4Tpl, ]'
+>
+</gem-nav-list>
+
+
+
+  </ng-template>
+  <ng-template #gemText7Tpl>
+    
+    
+<gem-text class='gemText7'
+      [value] = 'getGemText7ValueForAngular__ChangeDetection(
+        )'
+      [size] = 'getGemText7SizeForAngular__ChangeDetection(
+        )'
+>
+</gem-text>
+
+
+
+  </ng-template>
+  <ng-template #it8Tpl>
+    
+  
+  <ng-container *ngFor='let customer of getIt8IterableForAngular__ChangeDetection(); index as cIt8'>
+  
+  
+    
+<gem-card class='customerInfo'
+      [title] = 'getCustomerInfoTitleForAngular__ChangeDetection(
+        customer)'
+      [component] = 'gemRow9Tpl'
+>
+</gem-card>
+
+
+
+  <ng-template #gemText11Tpl>
+    
+    
+<gem-text class='gemText11'
+      [value] = 'getGemText11ValueForAngular__ChangeDetection(
+        customer)'
+>
+</gem-text>
+
+
+
+  </ng-template>
+  <ng-template #nameTpl>
+    
+    
+<gem-text class='name'
+      [value] = 'getNameValueForAngular__ChangeDetection(
+        customer)'
+>
+</gem-text>
+
+
+
+  </ng-template>
+  <ng-template #gemText12Tpl>
+    
+    
+<gem-text class='gemText12'
+      [value] = 'getGemText12ValueForAngular__ChangeDetection(
+        customer)'
+>
+</gem-text>
+
+
+
+  </ng-template>
+  <ng-template #emailTpl>
+    
+    
+<gem-text class='email'
+      [value] = 'getEmailValueForAngular__ChangeDetection(
+        customer)'
+>
+</gem-text>
+
+
+
+  </ng-template>
+  <ng-template #gemText13Tpl>
+    
+    
+<gem-text class='gemText13'
+      [value] = 'getGemText13ValueForAngular__ChangeDetection(
+        customer)'
+>
+</gem-text>
+
+
+
+  </ng-template>
+  <ng-template #ageTpl>
+    
+    
+<gem-text class='age'
+      [value] = 'getAgeValueForAngular__ChangeDetection(
+        customer)'
+>
+</gem-text>
+
+
+
+  </ng-template>
+  <ng-template #gemGrid10Tpl>
+    
+    
+<gem-grid class='gemGrid10'
+      [width] = 'getGemGrid10WidthForAngular__ChangeDetection(
+        customer)'
+      [colGap] = 'getGemGrid10ColGapForAngular__ChangeDetection(
+        customer)'
+      [rowGap] = 'getGemGrid10RowGapForAngular__ChangeDetection(
+        customer)'
+      [rows] = '[[gemText11Tpl, nameTpl, ], [gemText12Tpl, emailTpl, ], [gemText13Tpl, ageTpl, ], ]'
+>
+</gem-grid>
+
+
+
+  </ng-template>
+  <ng-template #gemRow9Tpl>
+    
+    
+<gem-row class='gemRow9'
+      [colGap] = 'getGemRow9ColGapForAngular__ChangeDetection(
+        customer)'
+      [vAlign] = 'getGemRow9VAlignForAngular__ChangeDetection(
+        customer)'
+      [hAlign] = 'getGemRow9HAlignForAngular__ChangeDetection(
+        customer)'
+      [components] = '[gemGrid10Tpl, ]'
+>
+</gem-row>
+
+
+
+  </ng-template>
+
+</ng-container>
+
+
+
+  </ng-template>
+  <ng-template #createComponentTpl>
+    
+    
+<customer-create class='createComponent'
+>
+</customer-create>
+
+
+
+  </ng-template>
+  <ng-template #gemColumn6Tpl>
+    
+    
+<gem-column class='gemColumn6'
+      [rowGap] = 'getGemColumn6RowGapForAngular__ChangeDetection(
+        )'
+      [components] = '[gemText7Tpl, it8Tpl, createComponentTpl, ]'
+>
+</gem-column>
+
+
+
+  </ng-template>
+  <ng-template #ageDistribtionTpl>
+    
+    
+<gem-pie-chart class='ageDistribtion'
+      [data] = 'getAgeDistribtionDataForAngular__ChangeDetection(
+        )'
+>
+</gem-pie-chart>
+
+
+
+  </ng-template>
+  <ng-template #gemCard15Tpl>
+    
+    
+<gem-card class='gemCard15'
+      [title] = 'getGemCard15TitleForAngular__ChangeDetection(
+        )'
+      [component] = 'ageDistribtionTpl'
+>
+</gem-card>
+
+
+
+  </ng-template>
+  <ng-template #gemColumn14Tpl>
+    
+    
+<gem-column class='gemColumn14'
+      [rowGap] = 'getGemColumn14RowGapForAngular__ChangeDetection(
+        )'
+      [hAlign] = 'getGemColumn14HAlignForAngular__ChangeDetection(
+        )'
+      [components] = '[gemCard15Tpl, ]'
+>
+</gem-column>
+
+
+
+  </ng-template>
+  <ng-template #gemRow5Tpl>
+    
+    
+<gem-row class='gemRow5'
+      [hAlign] = 'getGemRow5HAlignForAngular__ChangeDetection(
+        )'
+      [components] = '[gemColumn6Tpl, gemColumn14Tpl, ]'
+>
+</gem-row>
+
+
+
+  </ng-template>
+

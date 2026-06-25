@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Fischertechnik Factory Simulation</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0d1117; overflow:hidden; font-family:monospace; }
+#ui { position:absolute; top:14px; left:14px; color:#e6edf3; pointer-events:none; }
+#ui h1 { font-size:13px; color:#58a6ff; }
+#ui p  { font-size:10px; color:#8b949e; margin-top:3px; }
+#phase {
+  position:absolute; bottom:18px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,0.85); border:1px solid #30363d; border-radius:8px;
+  padding:10px 22px; color:#e6edf3; text-align:center; min-width:340px; pointer-events:none;
+}
+#phase h2 { font-size:14px; color:#58a6ff; }
+#phase p  { font-size:11px; color:#8b949e; margin-top:2px; }
+#phase .bar  { height:4px; background:#21262d; border-radius:2px; margin-top:8px; }
+#phase .fill { height:100%; background:#58a6ff; border-radius:2px; width:0; }
+#ctrl {
+  position:absolute; top:14px; right:14px;
+  background:rgba(0,0,0,0.85); border:1px solid #30363d; border-radius:8px;
+  padding:10px 14px; color:#e6edf3; font-size:11px; min-width:140px;
+}
+#ctrl label { display:block; margin-bottom:6px; }
+#ctrl input  { width:100%; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <h1>Fischertechnik Factory – Simulation</h1>
+  <p>Ziehen: drehen &nbsp;|&nbsp; Scroll: zoomen &nbsp;|&nbsp; Rechtsklick: verschieben</p>
+</div>
+<div id="phase">
+  <h2 id="pName">–</h2>
+  <p id="pSub">–</p>
+  <div class="bar"><div class="fill" id="pBar"></div></div>
+</div>
+<div id="ctrl">
+  <label>Geschwindigkeit: <span id="sVal">1×</span></label>
+  <input type="range" id="sRange" min="0.5" max="8" step="0.5" value="1">
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// ── RENDERER ──────────────────────────────────────────────────────────────────
+var scene    = new THREE.Scene();
+scene.background = new THREE.Color(0x0d1117);
+scene.fog    = new THREE.FogExp2(0x0d1117, 0.014);
+
+var camera   = new THREE.PerspectiveCamera(58, innerWidth/innerHeight, 0.1, 300);
+camera.position.set(1, 22, 25);
+
+var renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+var orbit = new THREE.OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+orbit.dampingFactor = 0.06;
+orbit.target.set(1, 1, -2);
+orbit.update();
+
+window.addEventListener('resize', function() {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ── LIGHTS ────────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+var sun = new THREE.DirectionalLight(0xfff5e0, 1.1);
+sun.position.set(8, 22, 12);
+sun.castShadow = true;
+sun.shadow.camera.left = -22; sun.shadow.camera.right  = 22;
+sun.shadow.camera.bottom = -22; sun.shadow.camera.top  = 22;
+sun.shadow.mapSize.set(2048, 2048);
+scene.add(sun);
+var fill = new THREE.DirectionalLight(0x4477bb, 0.25);
+fill.position.set(-8, 6, -10);
+scene.add(fill);
+var ofenLight = new THREE.PointLight(0xff6600, 0, 8);
+ofenLight.position.set(5, 1.5, -7.5);
+scene.add(ofenLight);
+
+// ── MATERIALS ─────────────────────────────────────────────────────────────────
+var MAT = {
+  ft:     new THREE.MeshLambertMaterial({ color: 0xcc4400 }),
+  ftDark: new THREE.MeshLambertMaterial({ color: 0x881f00 }),
+  table:  new THREE.MeshLambertMaterial({ color: 0xf0ece0 }),
+  grey:   new THREE.MeshLambertMaterial({ color: 0x667788 }),
+  chrome: new THREE.MeshLambertMaterial({ color: 0xbbccdd }),
+  belt:   new THREE.MeshLambertMaterial({ color: 0x1a1a1a }),
+  ofen:   new THREE.MeshLambertMaterial({ color: 0x444444 }),
+  glowOff:new THREE.MeshLambertMaterial({ color: 0x220000 }),
+  glowOn: new THREE.MeshLambertMaterial({ color: 0xff6600, emissive: new THREE.Color(0xff3300) }),
+  form:   new THREE.MeshLambertMaterial({ color: 0x99aabb }),
+  suct:   new THREE.MeshLambertMaterial({ color: 0x222222 }),
+};
+var wpMat = new THREE.MeshLambertMaterial({ color: 0x2266ff });
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function mkBox(w,h,d,mat,px,py,pz,par) {
+  var m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+  m.position.set(px,py,pz);
+  m.castShadow = true; m.receiveShadow = true;
+  (par || scene).add(m); return m;
+}
+function mkCyl(r,h,mat,px,py,pz,par) {
+  var m = new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,12), mat);
+  m.position.set(px,py,pz); m.castShadow = true;
+  (par || scene).add(m); return m;
+}
+function mkLabel(txt,px,py,pz) {
+  var c = document.createElement('canvas'); c.width=256; c.height=56;
+  var x = c.getContext('2d');
+  x.fillStyle='rgba(0,0,0,0.75)'; x.roundRect(2,2,252,52,8); x.fill();
+  x.fillStyle='#e6edf3'; x.font='bold 15px Arial'; x.textAlign='center'; x.fillText(txt,128,33);
+  var sp = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true}));
+  sp.scale.set(2.8,0.62,1); sp.position.set(px,py,pz); scene.add(sp);
+}
+function lerp(a,b,t)  { return a+(b-a)*t; }
+function ease(t)      { return t<0.5?2*t*t:-1+(4-2*t)*t; }
+function lerpV(a,b,t,o){ o.x=a.x+(b.x-a.x)*t; o.y=a.y+(b.y-a.y)*t; o.z=a.z+(b.z-a.z)*t; }
+function V(x,y,z)    { return new THREE.Vector3(x,y,z); }
+
+// Crane rotation angle: arm points from (kx,kz) toward (tx,tz)
+function kAng(kx,kz,tx,tz) { return Math.atan2(kz-tz, tx-kx); }
+// Distance from crane to target
+function kDist(kx,kz,tx,tz) { return Math.sqrt((tx-kx)*(tx-kx)+(tz-kz)*(tz-kz)); }
+
+// ── LAYOUT ────────────────────────────────────────────────────────────────────
+var L = {
+  FB1_CX:-7,   FB1_CZ:-7,   FB1_LEN:8,
+  AS: [{x:-9,z:-5},{x:-6.5,z:-5},{x:-4,z:-5}],
+  K1: {x:-5.5, z:1},
+  FB2: {x:0, zS:-2, zE:5},
+  K2: {x:5, z:0},
+  OFEN_CX:5,   OFEN_CZ:-7.5,
+  AS4: {x:6,   z:-5.5},
+  AS5: {x:8,   z:-5.5},
+  FB3: {x:10.5, zS:-6, zE:1},
+  AS6: {x:12.5, z:-4},
+  HR_CX:13,    HR_CZ:2.5,
+  K3_X:14,
+  DRILL_X:8, DRILL_Y:5.8, DRILL_Z:-6.0,
+  KLS_Y:2.4, KLS_Z:-5.5,
+};
+
+// Telescoping arm limits
+var K1_MIN = 1.5, K1_MAX = 7.5;
+var K2_MIN = 1.5, K2_MAX = 9.5;
+var K3_ARM = 2;
+var DT_R   = 0.5;   // workpiece offset radius on drehtisch (edge position)
+
+// Target distances (arm extension needed to reach each station)
+var K1D = {
+  AS2:  kDist(L.K1.x, L.K1.z, L.AS[1].x, L.AS[1].z),
+  FB2S: kDist(L.K1.x, L.K1.z, L.FB2.x,   L.FB2.zS),
+};
+var K2D = {
+  FB2E: kDist(L.K2.x, L.K2.z, L.FB2.x,  L.FB2.zE),
+  AS4:  kDist(L.K2.x, L.K2.z, L.AS4.x,  L.AS4.z),
+  AS6:  kDist(L.K2.x, L.K2.z, L.AS6.x,  L.AS6.z),
+  FB3E: kDist(L.K2.x, L.K2.z, L.FB3.x,  L.FB3.zE),
+};
+
+// Pre-computed angles
+var ANG1 = {
+  AS2: kAng(L.K1.x, L.K1.z, L.AS[1].x, L.AS[1].z),
+  FB2: kAng(L.K1.x, L.K1.z, L.FB2.x,   L.FB2.zS),
+};
+var ANG2 = {
+  FB2E: kAng(L.K2.x, L.K2.z, L.FB2.x,  L.FB2.zE),
+  AS4:  kAng(L.K2.x, L.K2.z, L.AS4.x,  L.AS4.z),
+  AS6:  kAng(L.K2.x, L.K2.z, L.AS6.x,  L.AS6.z),
+  FB3E: kAng(L.K2.x, L.K2.z, L.FB3.x,  L.FB3.zE),
+};
+
+// ── TABLE + GRID ──────────────────────────────────────────────────────────────
+mkBox(30,0.3,20,MAT.table, 1,-0.15,-1.5);
+[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(function(p){
+  mkBox(0.4,2.6,0.4,MAT.grey, 1+p[0]*13.5,-1.45,-1.5+p[1]*8.5);
+});
+var grid = new THREE.GridHelper(30,30,0x1e2a38,0x1a2030);
+grid.position.set(1,0.01,-1.5); scene.add(grid);
+
+// ── CONVEYOR ──────────────────────────────────────────────────────────────────
+function buildConveyor(cx,cz,len,dir) {
+  var g = new THREE.Group(), isZ=(dir==='z');
+  var W=isZ?1.1:len, D=isZ?len:1.1;
+  mkBox(W,0.14,D,MAT.ft,0,0.38,0,g);
+  mkBox(isZ?0.8:len-0.1,0.06,isZ?len-0.1:0.8,MAT.belt,0,0.46,0,g);
+  if(isZ){ mkBox(0.08,0.45,len,MAT.ft,-0.52,0.23,0,g); mkBox(0.08,0.45,len,MAT.ft,0.52,0.23,0,g); }
+  else   { mkBox(len,0.45,0.08,MAT.ft,0,0.23,-0.52,g); mkBox(len,0.45,0.08,MAT.ft,0,0.23,0.52,g); }
+  [[-len/2+0.15, len/2-0.15]].forEach(function(ends){
+    ends.forEach(function(ep){
+      var r=mkCyl(0.12,1.0,MAT.chrome,0,0.47,0,g);
+      if(isZ){ r.position.z=ep; r.rotation.x=Math.PI/2; }
+      else   { r.position.x=ep; r.rotation.z=Math.PI/2; }
+    });
+  });
+  (isZ?[[-0.4,-len/2+0.25],[0.4,-len/2+0.25],[-0.4,len/2-0.25],[0.4,len/2-0.25]]
+      :[[-len/2+0.25,-0.4],[-len/2+0.25,0.4],[len/2-0.25,-0.4],[len/2-0.25,0.4]])
+    .forEach(function(p){ mkCyl(0.055,0.65,MAT.grey,isZ?p[0]:p[0],0.0,isZ?p[1]:p[1],g); });
+  g.position.set(cx,0,cz); scene.add(g);
+}
+buildConveyor(L.FB1_CX, L.FB1_CZ, L.FB1_LEN, 'x');
+buildConveyor(L.FB2.x,  (L.FB2.zS+L.FB2.zE)/2, L.FB2.zE-L.FB2.zS, 'z');
+buildConveyor(L.FB3.x,  (L.FB3.zS+L.FB3.zE)/2, L.FB3.zE-L.FB3.zS, 'z');
+
+// ── AUFFANGSTATIONEN ──────────────────────────────────────────────────────────
+function buildAS(x,z,w,d){
+  w=w||1.1; d=d||1.1;
+  var g=new THREE.Group();
+  mkBox(w,0.4,d,MAT.ftDark,0,0.2,0,g);
+  mkBox(w+0.1,0.14,0.1,MAT.ft,0,0.47, d/2,g);
+  mkBox(w+0.1,0.14,0.1,MAT.ft,0,0.47,-d/2,g);
+  mkBox(0.1,0.14,d+0.1,MAT.ft,-w/2,0.47,0,g);
+  mkBox(0.1,0.14,d+0.1,MAT.ft, w/2,0.47,0,g);
+  g.position.set(x,0,z); scene.add(g);
+}
+buildAS(L.AS[0].x,L.AS[0].z); buildAS(L.AS[1].x,L.AS[1].z); buildAS(L.AS[2].x,L.AS[2].z);
+buildAS(L.AS4.x,L.AS4.z); buildAS(L.AS5.x,L.AS5.z,1.4,1.4); buildAS(L.AS6.x,L.AS6.z,1.4,1.4);
+
+// ── DREHTISCH, BOHRER, OFEN, HOCHREGAL ────────────────────────────────────────
+var drehtisch = new THREE.Group();
+mkCyl(0.62, 0.18, MAT.chrome, 0, 0.09, 0, drehtisch);            // turntable disc
+mkBox(0.10, 0.10, DT_R, MAT.ft, 0, 0.21, DT_R/2, drehtisch);    // arm pointing +Z (initial/south)
+mkCyl(0.12, 0.14, MAT.ftDark, 0, 0.21, DT_R, drehtisch);        // workpiece holder at arm tip
+drehtisch.position.set(L.AS5.x,0.5,L.AS5.z); scene.add(drehtisch);
+
+var bohrerGroup = new THREE.Group();
+mkBox(0.5,0.5,0.5,MAT.ft,0,0.25,0,bohrerGroup);
+mkCyl(0.08,1.5,MAT.chrome,0,-0.75,0,bohrerGroup);
+mkCyl(0.04,0.7,MAT.chrome,0,-1.85,0,bohrerGroup);
+bohrerGroup.position.set(L.DRILL_X,L.DRILL_Y,L.DRILL_Z); scene.add(bohrerGroup);
+
+var ofenGroup = new THREE.Group();
+mkBox(3.2,2.8,2.8,MAT.ofen,0,1.4,0,ofenGroup);
+var ofenGlowMesh = mkBox(2.8,2.4,2.4,MAT.glowOff,0,1.3,0,ofenGroup);
+mkBox(0.9,0.9,0.15,MAT.belt,0,0.9,1.45,ofenGroup);
+mkBox(3.0,0.12,2.6,MAT.grey,0,2.86,0,ofenGroup);
+ofenGroup.position.set(L.OFEN_CX,0,L.OFEN_CZ); scene.add(ofenGroup);
+
+var hrGroup = new THREE.Group();
+mkBox(3.2,7,2.2,MAT.ftDark,0,3.5,0,hrGroup);
+for(var sh=0;sh<5;sh++){
+  mkBox(3.0,0.08,2.0,MAT.grey,0,0.6+sh*1.2,0,hrGroup);
+  [-0.9,-0.3,0.3,0.9].forEach(function(sx){mkBox(0.07,0.5,1.8,MAT.grey,sx,0.85+sh*1.2,0,hrGroup);});
+}
+hrGroup.position.set(L.HR_CX,0,L.HR_CZ); scene.add(hrGroup);
+
+// ── KRAN BUILDER — TELESKOP-ARM ───────────────────────────────────────────────
+//
+//  armG (rotates Y)
+//   ├─ counterweight (fixed back)
+//   ├─ sleeve (fixed, 0 → minArm)  ← outer tube, always visible
+//   ├─ innerG (group at x=minArm, scales.x = ext)
+//   │   └─ inner arm box (center at 0.5 → extends 0..ext from sleeve)
+//   └─ rodG  (position.x = minArm + ext, moves up/down)
+//       └─ suction cup + rod
+//
+function buildKran360(x, z, minArm) {
+  var g = new THREE.Group();
+  g.position.set(x, 0, z);
+
+  mkCyl(0.50, 0.28, MAT.ftDark, 0, 0.14, 0, g);   // base disc
+  mkCyl(0.18, 3.20, MAT.ft,     0, 1.74, 0, g);   // column
+
+  var armG = new THREE.Group();
+  armG.position.set(0, 3.2, 0);
+  g.add(armG);
+
+  // counterweight
+  mkBox(0.80, 0.26, 0.26, MAT.ftDark, -0.6, 0, 0, armG);
+  // outer sleeve (fixed length = minArm)
+  mkBox(minArm, 0.22, 0.22, MAT.ft, minArm/2, 0, 0, armG);
+
+  // inner (extending) arm — group pivot at end of sleeve
+  var innerG = new THREE.Group();
+  innerG.position.set(minArm, 0, 0);
+  armG.add(innerG);
+  // box center at (0.5, 0, 0): when scale.x = ext, extends from sleeve tip outward
+  mkBox(1, 0.14, 0.14, MAT.chrome, 0.5, 0, 0, innerG);
+  innerG.scale.x = 0.01;   // nearly zero = fully retracted
+
+  // rod group (suction cup — moves along arm axis and vertically)
+  var rodG = new THREE.Group();
+  rodG.position.set(minArm, 0, 0);  // updated each frame
+  armG.add(rodG);
+  mkCyl(0.065, 1.60, MAT.chrome, 0, -0.80, 0, rodG);
+  mkCyl(0.170, 0.10, MAT.suct,   0, -1.65, 0, rodG);
+  mkCyl(0.070, 0.10, MAT.suct,   0, -1.77, 0, rodG);
+
+  scene.add(g);
+  return { armG:armG, innerG:innerG, rodG:rodG, minArm:minArm, x:x, z:z };
+}
+
+var K1 = buildKran360(L.K1.x, L.K1.z, K1_MIN);
+var K2 = buildKran360(L.K2.x, L.K2.z, K2_MIN);
+
+// ── KRAN 3 ────────────────────────────────────────────────────────────────────
+mkBox(0.18,8,0.18,MAT.ftDark, L.K3_X, 4, (L.AS6.z+L.HR_CZ)/2);
+mkBox(0.18,0.18,Math.abs(L.HR_CZ-L.AS6.z)+1,MAT.ftDark, L.K3_X,8,(L.AS6.z+L.HR_CZ)/2);
+
+var k3car = new THREE.Group();
+mkBox(0.55,0.55,0.55,MAT.ft,0,0,0,k3car);
+mkBox(K3_ARM,0.14,0.14,MAT.ft,-K3_ARM/2,0,0,k3car);
+var k3rod = new THREE.Group(); k3rod.position.set(-K3_ARM,0,0); k3car.add(k3rod);
+mkCyl(0.065,1.2,MAT.chrome,0,-0.6,0,k3rod);
+mkCyl(0.155,0.10,MAT.suct,0,-1.25,0,k3rod);
+k3car.position.set(L.K3_X,4.5,L.HR_CZ); scene.add(k3car);
+
+// ── SCHUBSER ──────────────────────────────────────────────────────────────────
+var schubserPlates = L.AS.map(function(as){
+  var sg=new THREE.Group();
+  mkBox(0.1,0.12,1.0,MAT.chrome,0,0,0.5,sg);
+  var pl=mkBox(0.4,0.26,0.08,MAT.ft,0,0,0.05,sg);
+  sg.position.set(as.x,0.9,L.FB1_CZ-0.8); scene.add(sg); return pl;
+});
+
+// ── KLEINER SAUGER ────────────────────────────────────────────────────────────
+var klsGroup = new THREE.Group();
+mkBox(3.5,0.1,0.1,MAT.chrome,1.75,0,0,klsGroup);
+klsGroup.position.set(L.AS4.x,L.KLS_Y,L.KLS_Z); scene.add(klsGroup);
+var klsCar = new THREE.Group();
+mkBox(0.42,0.42,0.42,MAT.ft,0,0,0,klsCar);
+var klsRod = new THREE.Group(); klsCar.add(klsRod);
+mkCyl(0.06,1.2,MAT.chrome,0,-0.6,0,klsRod);
+mkCyl(0.15,0.10,MAT.suct,0,-1.25,0,klsRod);
+klsGroup.add(klsCar);
+
+// ── WERKSTÜCK + FORM ──────────────────────────────────────────────────────────
+var wp = new THREE.Mesh(new THREE.BoxGeometry(0.44,0.44,0.44), wpMat);
+wp.castShadow=true; scene.add(wp);
+wp.position.set(-11,0.72,L.FB1_CZ);
+
+var formGroup = new THREE.Group();
+mkBox(0.85,0.12,0.85,MAT.form,0,0,0,formGroup);
+mkBox(0.85,0.3,0.10,MAT.form,0,0.21,-0.38,formGroup);
+mkBox(0.85,0.3,0.10,MAT.form,0,0.21, 0.38,formGroup);
+mkBox(0.10,0.3,0.85,MAT.form,-0.38,0.21,0,formGroup);
+mkBox(0.10,0.3,0.85,MAT.form, 0.38,0.21,0,formGroup);
+formGroup.position.set(L.HR_CX-0.6,2.0,L.HR_CZ); scene.add(formGroup);
+
+// ── LABELS ────────────────────────────────────────────────────────────────────
+mkLabel('Förderband 1',    L.FB1_CX,2.2,L.FB1_CZ);
+mkLabel('AS1',             L.AS[0].x,1.6,L.AS[0].z);
+mkLabel('AS2',             L.AS[1].x,1.6,L.AS[1].z);
+mkLabel('AS3',             L.AS[2].x,1.6,L.AS[2].z);
+mkLabel('Kran 1 (360°)',   L.K1.x,4.5,L.K1.z);
+mkLabel('Förderband 2',    L.FB2.x,2.2,(L.FB2.zS+L.FB2.zE)/2);
+mkLabel('Kran 2 (360°)',   L.K2.x,4.5,L.K2.z);
+mkLabel('Ofen',            L.OFEN_CX,3.8,L.OFEN_CZ);
+mkLabel('AS4',             L.AS4.x,1.8,L.AS4.z);
+mkLabel('Drehtisch (AS5)', L.AS5.x,2.2,L.AS5.z);
+mkLabel('Förderband 3',    L.FB3.x,2.2,(L.FB3.zS+L.FB3.zE)/2);
+mkLabel('AS6',             L.AS6.x,1.8,L.AS6.z);
+mkLabel('Hochregal',       L.HR_CX,5.5,L.HR_CZ);
+mkLabel('Kran 3 (Schiene)',L.K3_X,5.2,(L.AS6.z+L.HR_CZ)/2);
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+var st = {
+  wpPos:   V(-11,0.72,L.FB1_CZ),
+  wpHolder: null,
+  fPos:    V(L.HR_CX-0.6,2.0,L.HR_CZ),
+  fHolder:  null,
+  // Kran 1: angle, rod-Y, arm-extension
+  k1a: 0,  k1r: 0,  k1ext: K1_MIN,
+  // Kran 2
+  k2a: 0,  k2r: 0,  k2ext: K2_MIN,
+  // Kran 3
+  k3z: L.HR_CZ, k3y: 4.5, k3r: 0,
+  // drehtisch angle
+  dta: 0,
+  // kleiner sauger X offset, rod-Y
+  klsX: 0, klsR: 0,
+};
+
+// Captured start values for smooth lerp between phases
+var capK1a=0, capK1e=K1_MIN, capK2a=0, capK2e=K2_MIN;
+
+// Arm tip world position
+function k1tip() {
+  return V(L.K1.x + st.k1ext*Math.cos(st.k1a),
+           3.2 + st.k1r - 1.77 + 0.22,
+           L.K1.z - st.k1ext*Math.sin(st.k1a));
+}
+function k2tip() {
+  return V(L.K2.x + st.k2ext*Math.cos(st.k2a),
+           3.2 + st.k2r - 1.77 + 0.22,
+           L.K2.z - st.k2ext*Math.sin(st.k2a));
+}
+
+// Apply arm visual (call every frame)
+function applyArms() {
+  // Kran 1: inner arm extends from sleeve tip
+  K1.innerG.scale.x = Math.max(0.01, st.k1ext - K1_MIN);
+  K1.rodG.position.x = st.k1ext;
+  // Kran 2
+  K2.innerG.scale.x = Math.max(0.01, st.k2ext - K2_MIN);
+  K2.rodG.position.x = st.k2ext;
+}
+
+// ── PHASES ────────────────────────────────────────────────────────────────────
+var PHASES = [
+
+{ name:'Förderband 1', sub:'Werkstück wird transportiert →', dur:4,
+  start:function(){ st.wpHolder=null; },
+  update:function(t){ st.wpPos.set(lerp(-11,L.AS[1].x,ease(t)), 0.72, L.FB1_CZ); }
+},
+
+{ name:'Schubser', sub:'Schiebt Werkstück zu Auffangstation 2', dur:1.8,
+  start:function(){},
+  update:function(t){
+    st.wpPos.set(L.AS[1].x, 0.72, lerp(L.FB1_CZ,L.AS[1].z,ease(Math.min(t*1.5,1))));
+    var ext=t<0.5?ease(t*2):ease(1-(t-0.5)*2);
+    schubserPlates[1].position.z = lerp(0.05, 1.5, ext);
+  }
+},
+
+// ── K1: fährt aus & dreht zu AS2 ─────────────────────────────────────────────
+{ name:'Kran 1', sub:'Dreht & fährt aus → Auffangstation 2', dur:2.2,
+  start:function(){ capK1a=st.k1a; capK1e=st.k1ext; },
+  update:function(t){
+    st.k1a   = lerp(capK1a, ANG1.AS2,  ease(t));
+    st.k1ext = lerp(capK1e, K1D.AS2,   ease(t));
+    K1.armG.rotation.y = st.k1a;
+  }
+},
+{ name:'Kran 1', sub:'Saugnapf senkt sich ab', dur:0.9,
+  start:function(){},
+  update:function(t){ st.k1r=lerp(0,-1.5,ease(t)); K1.rodG.position.y=st.k1r; }
+},
+{ name:'Kran 1', sub:'Werkstück angesaugt ○', dur:0.5,
+  start:function(){ st.wpHolder='k1'; },
+  update:function(t){}
+},
+{ name:'Kran 1', sub:'Hebt Werkstück an', dur:0.9,
+  start:function(){},
+  update:function(t){ st.k1r=lerp(-1.5,0,ease(t)); K1.rodG.position.y=st.k1r; }
+},
+
+// ── K1: dreht zu FB2 (arm passt sich an) ─────────────────────────────────────
+{ name:'Kran 1', sub:'Dreht & justiert Arm → Förderband 2', dur:2.2,
+  start:function(){ capK1a=st.k1a; capK1e=st.k1ext; },
+  update:function(t){
+    st.k1a   = lerp(capK1a, ANG1.FB2,  ease(t));
+    st.k1ext = lerp(capK1e, K1D.FB2S,  ease(t));
+    K1.armG.rotation.y = st.k1a;
+  }
+},
+{ name:'Kran 1', sub:'Setzt Werkstück auf Förderband 2 ab', dur:1.0,
+  start:function(){},
+  update:function(t){ st.k1r=lerp(0,-1.2,ease(t)); K1.rodG.position.y=st.k1r; }
+},
+{ name:'Kran 1', sub:'Freigabe', dur:0.5,
+  start:function(){},
+  update:function(t){
+    if(t>0.5){ st.wpHolder=null; st.wpPos.set(L.FB2.x,0.72,L.FB2.zS); }
+  }
+},
+
+// ── K1: retrahiert Arm ────────────────────────────────────────────────────────
+{ name:'Kran 1', sub:'Arm fährt ein & retrahiert', dur:1.4,
+  start:function(){ capK1e=st.k1ext; },
+  update:function(t){
+    st.k1r   = lerp(-1.2, 0, ease(Math.min(t*1.5,1)));
+    st.k1ext = lerp(capK1e, K1_MIN, ease(t));
+    K1.rodG.position.y = st.k1r;
+  }
+},
+
+// ── FB2 ───────────────────────────────────────────────────────────────────────
+{ name:'Förderband 2', sub:'Werkstück fährt von Anfang → Ende', dur:4,
+  start:function(){ st.wpHolder=null; },
+  update:function(t){ st.wpPos.set(L.FB2.x, 0.72, lerp(L.FB2.zS,L.FB2.zE,ease(t))); }
+},
+
+// ── K2: dreht & fährt zu FB2-Ende ────────────────────────────────────────────
+{ name:'Kran 2', sub:'Dreht & fährt aus → Förderband 2 (Ende)', dur:2.2,
+  start:function(){ capK2a=st.k2a; capK2e=st.k2ext; },
+  update:function(t){
+    st.k2a   = lerp(capK2a, ANG2.FB2E, ease(t));
+    st.k2ext = lerp(capK2e, K2D.FB2E,  ease(t));
+    K2.armG.rotation.y = st.k2a;
+  }
+},
+{ name:'Kran 2', sub:'Saugnapf senkt sich ab', dur:0.9,
+  start:function(){},
+  update:function(t){ st.k2r=lerp(0,-1.5,ease(t)); K2.rodG.position.y=st.k2r; }
+},
+{ name:'Kran 2', sub:'Werkstück angesaugt ○', dur:0.5,
+  start:function(){ st.wpHolder='k2'; },
+  update:function(t){}
+},
+
+// ── K2: dreht + justiert Arm zu AS4 ──────────────────────────────────────────
+{ name:'Kran 2', sub:'Dreht & justiert Arm → Auffangstation 4', dur:2.5,
+  start:function(){ capK2a=st.k2a; capK2e=st.k2ext; },
+  update:function(t){
+    var mv = ease(Math.max(0,t-0.2)/0.8);
+    st.k2r   = t<0.25 ? lerp(-1.5,0,ease(t/0.25)) : 0;
+    st.k2a   = lerp(capK2a, ANG2.AS4, mv);
+    st.k2ext = lerp(capK2e, K2D.AS4,  mv);
+    K2.armG.rotation.y = st.k2a;
+    K2.rodG.position.y = st.k2r;
+  }
+},
+{ name:'Kran 2', sub:'Setzt Werkstück auf AS4 ab', dur:1.0,
+  start:function(){},
+  update:function(t){ st.k2r=lerp(0,-1.2,ease(t)); K2.rodG.position.y=st.k2r; }
+},
+{ name:'Kran 2', sub:'Freigabe', dur:0.5,
+  start:function(){},
+  update:function(t){
+    if(t>0.5){ st.wpHolder=null; st.wpPos.set(L.AS4.x,0.72,L.AS4.z); }
+  }
+},
+
+// ── K2: retrahiert Arm ────────────────────────────────────────────────────────
+{ name:'Kran 2', sub:'Arm fährt ein & retrahiert', dur:1.4,
+  start:function(){ capK2e=st.k2ext; },
+  update:function(t){
+    st.k2r   = lerp(-1.2,0,ease(Math.min(t*1.5,1)));
+    st.k2ext = lerp(capK2e, K2_MIN, ease(t));
+    K2.rodG.position.y = st.k2r;
+  }
+},
+
+// ── OFEN ─────────────────────────────────────────────────────────────────────
+{ name:'Ofen', sub:'Werkstück fährt in den Ofen', dur:2,
+  start:function(){},
+  update:function(t){
+    lerpV(V(L.AS4.x,0.72,L.AS4.z), V(L.OFEN_CX,0.72,L.OFEN_CZ+0.4), ease(t), st.wpPos);
+    ofenLight.intensity=lerp(0,2,t);
+  }
+},
+{ name:'Ofen', sub:'Werkstück wird erhitzt 🔥', dur:2.5,
+  start:function(){},
+  update:function(t){
+    var pulse=0.5+0.5*Math.sin(t*Math.PI*8);
+    ofenLight.intensity=2+pulse*2;
+    ofenGlowMesh.material=(Math.floor(t*10)%2===0)?MAT.glowOn:MAT.glowOff;
+    wpMat.color.setHex(t<0.4?0x2266ff:0xff5500);
+    wpMat.emissive=new THREE.Color(t>0.4?0xff2200:0x000000);
+  }
+},
+{ name:'Ofen', sub:'Werkstück kommt aus dem Ofen', dur:2,
+  start:function(){},
+  update:function(t){
+    lerpV(V(L.OFEN_CX,0.72,L.OFEN_CZ+0.4), V(L.AS4.x,0.72,L.AS4.z), ease(t), st.wpPos);
+    ofenLight.intensity=lerp(2,0,t);
+    ofenGlowMesh.material=MAT.glowOff;
+  }
+},
+
+// ── KLEINER SAUGER ────────────────────────────────────────────────────────────
+{ name:'Kleiner Sauger', sub:'Fährt zu AS4 & saugt an', dur:1.5,
+  start:function(){ st.klsX=0; klsCar.position.x=0; },
+  update:function(t){
+    var ext=t<0.5?ease(t*2):ease(1-(t-0.5)*2);
+    st.klsR=lerp(0,-0.8,ext); klsRod.position.y=st.klsR;
+    if(t>0.35) st.wpHolder='kls';
+  }
+},
+{ name:'Kleiner Sauger', sub:'Gleitet zu Auffangstation 5', dur:1.8,
+  start:function(){},
+  update:function(t){
+    st.klsX=lerp(0, L.AS5.x-L.AS4.x, ease(t));
+    klsCar.position.x=st.klsX;
+  }
+},
+{ name:'Kleiner Sauger', sub:'Legt Werkstück auf Drehtisch ab', dur:1,
+  start:function(){},
+  update:function(t){
+    var ext=t<0.5?ease(t*2):ease(1-(t-0.5)*2);
+    st.klsR=lerp(0,-0.5,ext); klsRod.position.y=st.klsR;
+    if(t>0.55){ st.wpHolder='dt'; st.dta=0; }  // dta=0 → wp at south edge (z=AS5.z+DT_R)
+  }
+},
+
+// ── DREHTISCH + BOHRER ────────────────────────────────────────────────────────
+{ name:'Drehtisch', sub:'Dreht 180° zum Bohrer (im Uhrzeigersinn)', dur:2,
+  start:function(){ st.dta=0; },
+  update:function(t){ st.dta=lerp(0,-Math.PI,ease(t)); drehtisch.rotation.y=st.dta; }
+},
+{ name:'Bohrer', sub:'Bohrvorgang läuft', dur:2.5,
+  start:function(){},
+  update:function(t){
+    var down=t<0.35?ease(t/0.35):(t>0.75?ease((1-t)/0.25):1);
+    bohrerGroup.position.y=L.DRILL_Y-down*3.8;
+    bohrerGroup.rotation.y+=0.4;
+  }
+},
+{ name:'Drehtisch', sub:'Dreht weitere 90° zu Förderband 3', dur:1.5,
+  start:function(){},
+  update:function(t){
+    st.dta=lerp(-Math.PI,-Math.PI*1.5,ease(t));
+    drehtisch.rotation.y=st.dta;
+    bohrerGroup.position.y=L.DRILL_Y;
+  }
+},
+
+// ── FB3 ───────────────────────────────────────────────────────────────────────
+{ name:'Förderband 3', sub:'Werkstück auf FB3 gelegt', dur:1,
+  start:function(){ st.wpHolder=null; },
+  update:function(t){ lerpV(V(L.AS5.x,0.88,L.AS5.z),V(L.FB3.x,0.72,L.FB3.zS),ease(t),st.wpPos); }
+},
+{ name:'Förderband 3', sub:'Werkstück fährt nach Ende →', dur:4,
+  start:function(){},
+  update:function(t){ st.wpPos.set(L.FB3.x,0.72,lerp(L.FB3.zS,L.FB3.zE,ease(t))); }
+},
+
+// ── KRAN 3: holt Form aus Hochregal ──────────────────────────────────────────
+{ name:'Kran 3', sub:'Fährt zu Hochregal-Lagerplatz', dur:2,
+  start:function(){},
+  update:function(t){
+    st.k3y=lerp(4.5,2.2,ease(t)); st.k3z=L.HR_CZ;
+    k3car.position.set(L.K3_X,st.k3y,st.k3z);
+  }
+},
+{ name:'Kran 3', sub:'Greift Form aus Hochregal', dur:1.5,
+  start:function(){},
+  update:function(t){
+    var ext=t<0.5?ease(t*2):ease(1-(t-0.5)*2);
+    st.k3r=lerp(0,-0.8,ext); k3rod.position.y=st.k3r;
+    if(t>0.3) st.fHolder='k3';
+  }
+},
+{ name:'Kran 3', sub:'Hebt Form & fährt zu Auffangstation 6', dur:3,
+  start:function(){},
+  update:function(t){
+    var up=Math.min(t/0.2,1), mv=Math.max(0,Math.min((t-0.2)/0.7,1));
+    st.k3y=lerp(2.2,5,ease(up)); st.k3z=lerp(L.HR_CZ,L.AS6.z,ease(mv));
+    k3car.position.set(L.K3_X,st.k3y,st.k3z);
+  }
+},
+{ name:'Kran 3', sub:'Legt Form in Auffangstation 6 ab', dur:1.5,
+  start:function(){},
+  update:function(t){
+    st.k3y=lerp(5,3.5,ease(t)); k3car.position.y=st.k3y;
+    if(t>0.7){ st.fHolder=null; st.fPos.set(L.AS6.x,0.72,L.AS6.z); }
+  }
+},
+{ name:'Kran 3', sub:'Arm zurück', dur:0.8,
+  start:function(){},
+  update:function(t){ st.k3y=lerp(3.5,5,ease(t)); k3car.position.y=st.k3y; }
+},
+
+// ── K2: holt WP von FB3-Ende ──────────────────────────────────────────────────
+{ name:'Kran 2', sub:'Dreht & fährt aus → Förderband 3 (Ende)', dur:2.2,
+  start:function(){ capK2a=st.k2a; capK2e=st.k2ext; },
+  update:function(t){
+    st.k2a   = lerp(capK2a, ANG2.FB3E, ease(t));
+    st.k2ext = lerp(capK2e, K2D.FB3E,  ease(t));
+    K2.armG.rotation.y = st.k2a;
+  }
+},
+{ name:'Kran 2', sub:'Greift Werkstück von Förderband 3', dur:1.5,
+  start:function(){},
+  update:function(t){
+    st.k2r=t<0.4?lerp(0,-1.5,ease(t/0.4)):(t>0.7?lerp(-1.5,0,ease((t-0.7)/0.3)):-1.5);
+    K2.rodG.position.y=st.k2r;
+    if(t>0.3&&t<0.8) st.wpHolder='k2';
+  }
+},
+
+// ── K2: dreht + fährt aus zu AS6 (langer Arm!) ───────────────────────────────
+{ name:'Kran 2', sub:'Dreht & fährt weit aus → Auffangstation 6', dur:2.5,
+  start:function(){ capK2a=st.k2a; capK2e=st.k2ext; },
+  update:function(t){
+    st.k2a   = lerp(capK2a, ANG2.AS6, ease(t));
+    st.k2ext = lerp(capK2e, K2D.AS6,  ease(t));
+    K2.armG.rotation.y = st.k2a;
+  }
+},
+{ name:'Kran 2', sub:'Legt Werkstück in die Form', dur:1.5,
+  start:function(){},
+  update:function(t){
+    st.k2r=t<0.4?lerp(0,-1.2,ease(t/0.4)):(t>0.7?lerp(-1.2,0,ease((t-0.7)/0.3)):-1.2);
+    K2.rodG.position.y=st.k2r;
+    if(t>0.6){ st.wpHolder=null; st.wpPos.set(L.AS6.x,0.9,L.AS6.z); }
+  }
+},
+
+// ── K2: retrahiert ────────────────────────────────────────────────────────────
+{ name:'Kran 2', sub:'Arm retrahiert', dur:1.2,
+  start:function(){ capK2e=st.k2ext; },
+  update:function(t){
+    st.k2r   = lerp(-1.2,0,ease(Math.min(t*1.5,1)));
+    st.k2ext = lerp(capK2e,K2_MIN,ease(t));
+    K2.rodG.position.y=st.k2r;
+  }
+},
+
+// ── K3: nimmt Form+WP & bringt zurück ────────────────────────────────────────
+{ name:'Kran 3', sub:'Greift Form + Werkstück aus AS6', dur:1.5,
+  start:function(){},
+  update:function(t){
+    k3car.position.y=t<0.5?lerp(5,3.8,ease(t*2)):lerp(3.8,5,ease((t-0.5)*2));
+    st.k3y=k3car.position.y;
+    if(t>0.35){ st.fHolder='k3'; st.wpHolder='k3f'; }
+  }
+},
+{ name:'Kran 3', sub:'Bringt Form + Werkstück zurück ins Hochregal', dur:3,
+  start:function(){},
+  update:function(t){
+    var mv=Math.min(t/0.7,1), dn=Math.max(0,(t-0.7)/0.3);
+    st.k3z=lerp(L.AS6.z,L.HR_CZ,ease(mv));
+    st.k3y=lerp(5,2.2,ease(dn));
+    k3car.position.set(L.K3_X,st.k3y,st.k3z);
+    if(t>0.88){
+      st.fHolder=null; st.wpHolder=null;
+      st.fPos.set(L.HR_CX-0.6,2.0,L.HR_CZ);
+      st.wpPos.set(L.HR_CX-0.6,2.45,L.HR_CZ);
+    }
+  }
+},
+
+// ── RESET ─────────────────────────────────────────────────────────────────────
+{ name:'✓ Zyklus abgeschlossen', sub:'Nächster Zyklus startet...', dur:2.5,
+  start:function(){},
+  update:function(t){
+    if(t>0.85){
+      wpMat.color.setHex(0x2266ff); wpMat.emissive=new THREE.Color(0x000000);
+      drehtisch.rotation.y=0; st.dta=0; bohrerGroup.position.y=L.DRILL_Y;
+      klsCar.position.x=0; klsRod.position.y=0;
+      schubserPlates[1].position.z=0.05;
+      K1.armG.rotation.y=0; K1.rodG.position.y=0;
+      K2.armG.rotation.y=0; K2.rodG.position.y=0;
+      k3car.position.set(L.K3_X,4.5,L.HR_CZ); k3rod.position.y=0;
+      st.k1a=0; st.k1ext=K1_MIN;
+      st.k2a=0; st.k2ext=K2_MIN;
+      st.k3y=4.5; st.k3z=L.HR_CZ; st.k3r=0;
+    }
+  }
+},
+
+]; // end PHASES
+
+// ── PHASE RUNNER ──────────────────────────────────────────────────────────────
+var phIdx=0, phTime=0, speed=1;
+var pNameEl=document.getElementById('pName'), pSubEl=document.getElementById('pSub'), pBarEl=document.getElementById('pBar');
+
+document.getElementById('sRange').addEventListener('input', function(e){
+  speed=parseFloat(e.target.value);
+  document.getElementById('sVal').textContent=speed+'×';
+});
+
+function gotoPhase(i){
+  phIdx=i%PHASES.length; phTime=0;
+  var p=PHASES[phIdx];
+  pNameEl.textContent=p.name; pSubEl.textContent=p.sub;
+  if(p.start) p.start();
+}
+gotoPhase(0);
+
+// ── ANIMATION LOOP ────────────────────────────────────────────────────────────
+var clock = new THREE.Clock();
+
+function animate(){
+  requestAnimationFrame(animate);
+  var dt = clock.getDelta()*speed;
+  phTime += dt;
+
+  var p=PHASES[phIdx], t=Math.min(phTime/p.dur,1);
+  p.update(t);
+  pBarEl.style.width=(t*100)+'%';
+  if(phTime>=p.dur) gotoPhase(phIdx+1);
+
+  // ── Arm visuals ──────────────────────────────────────────────────────────────
+  applyArms();
+
+  // ── Workpiece ────────────────────────────────────────────────────────────────
+  if     (st.wpHolder==='k1')  wp.position.copy(k1tip());
+  else if(st.wpHolder==='k2')  wp.position.copy(k2tip());
+  else if(st.wpHolder==='kls') wp.position.set(L.AS4.x+st.klsX, L.KLS_Y+st.klsR-1.25+0.22, L.KLS_Z);
+  else if(st.wpHolder==='dt') {
+    // workpiece orbits drehtisch center at radius DT_R; starts at +Z (south)
+    wp.position.set(
+      L.AS5.x + Math.sin(st.dta)*DT_R,
+      0.88,
+      L.AS5.z + Math.cos(st.dta)*DT_R
+    );
+  }
+  else if(st.wpHolder==='k3f') wp.position.set(L.K3_X-K3_ARM, st.k3y+st.k3r-1.25+0.44, st.k3z);
+  else                         wp.position.copy(st.wpPos);
+  wp.rotation.y += 0.5*dt;
+
+  // ── Form ─────────────────────────────────────────────────────────────────────
+  if(st.fHolder==='k3') formGroup.position.set(L.K3_X-K3_ARM, st.k3y+st.k3r-1.25, st.k3z);
+  else                  formGroup.position.copy(st.fPos);
+
+  // ── Kleiner Sauger carriage ───────────────────────────────────────────────
+  klsCar.position.x = st.klsX;
+
+  orbit.update();
+  renderer.render(scene, camera);
+}
+
+animate();
+</script>
+</body>
+</html>

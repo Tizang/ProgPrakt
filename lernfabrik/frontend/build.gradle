@@ -1,0 +1,47 @@
+/* (c) https://github.com/MontiCore/monticore */
+import de.montigem.gradle.specific.GUI2Java2TSTask
+
+plugins {
+  id 'de.rwth.se.montigem-frontend'
+}
+
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(25)
+  }
+}
+
+tasks.named("gui2java2ts", GUI2Java2TSTask) {
+  guiCreateModels = ["gui.MachineCreate"]
+}
+
+// Install Three.js after the standard npm install
+tasks.register("installThreeJs") {
+  dependsOn "npmInstall"
+  doLast {
+    def nodeModulesThree = file("${buildDir}/app/node_modules/three")
+    if (!nodeModulesThree.exists()) {
+      exec {
+        workingDir "${buildDir}/app"
+        commandLine "npm", "install", "--save", "three@^0.184.0", "@types/three@^0.184.0"
+      }
+      logger.lifecycle("three.js installed")
+    }
+  }
+}
+
+// Hook into the Angular dev server and build tasks
+afterEvaluate {
+  ["run", "buildAngular", "compileAngular"].each { taskName ->
+    tasks.findByName(taskName)?.dependsOn("installThreeJs")
+  }
+}
+
+dependencies {
+  testImplementation 'org.junit.jupiter:junit-jupiter:5.7.1'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+  useJUnitPlatform()
+}

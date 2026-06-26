@@ -1,0 +1,25 @@
+package gui;
+
+import mc.fenix.basic.GemText;
+import mc.fenix.arrange.GemColumn;
+import mc.fenix.arrange.GemRow;
+import gui.navigation.NavContainer;
+
+import Lernfabrik.Machine;
+
+page MachineOverview(List<Machine> machines) {
+  @NavContainer(content = [
+    @GemColumn(rowGap = "10px", components = [
+      @GemText(value = "Maschinenübersicht", size = "2rem"),
+      @iterate(Machine m : machines) {
+        @GemRow(colGap = "20px", components = [
+          @GemText(value = m.machineName, weight = "bold"),
+          @GemText(value = m.state),
+          @GemText(value = "Hitze: " + m.heatLevel),
+          @GemText(value = "Energie: " + m.energyConsumedKwh + " kWh"),
+          @GemText(value = "Pakete: " + m.processedPackets)
+        ]);
+      }
+    ])
+  ]);
+}
